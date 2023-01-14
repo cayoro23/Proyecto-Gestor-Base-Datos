@@ -10,12 +10,22 @@ import java.util.Map;
 public class Comandos {
 
     private static String currentDatabase = "";
+    private static final String ruta = "C:\\Users\\Carlos\\Documents\\BD";
+    private static final Map<String, Runnable> acciones = new HashMap<>();
 
     private static String obtenerPrimerToken(String comando) {
+        if (comando.trim().isEmpty() || !comando.contains(" ")) {
+            return "";
+        }
+        System.out.println(comando.split(" ")[0]);
         return comando.split(" ")[0];
     }
 
     private static String obtenerSegundoToken(String comando) {
+        if (comando.split(" ").length < 2) {
+            return "";
+        }
+        System.out.println(comando.split(" ")[1]);
         return comando.split(" ")[1];
     }
 
@@ -25,17 +35,19 @@ public class Comandos {
 
     public static void ejecutarComando(String comando) {
         System.out.println(comando);
-        Map<String, Runnable> acciones = new HashMap<>();
         acciones.put("create_database", () -> {
-            String nombre = comando.substring(comando.indexOf(" ") + 1);
-            System.out.println(nombre);
-            crearBaseDeDatos(nombre);
+            String nombreBD = comando.substring(comando.indexOf(" ") + 1);
+            crearBaseDeDatos(nombreBD);
         });
         acciones.put("drop_database", () -> {
             String nombreBD = comando.substring(comando.indexOf(" ") + 1);
             eliminarBaseDeDatos(nombreBD);
         });
-        acciones.put("use_database", () -> seleccionarBaseDeDatos(comando));
+        acciones.put("use_database", () -> {
+            seleccionarBaseDeDatos(comando);
+            System.out.println("Estás dentro de la base de datos " + currentDatabase);
+        });
+
         acciones.put("create_table", () -> crearTabla(comando));
         acciones.put("add_column", () -> agregarAtributos(comando));
         acciones.put("drop_table", () -> eliminarTabla(comando));
@@ -51,8 +63,7 @@ public class Comandos {
     }
 
     private static void crearBaseDeDatos(String nombreBD) {
-        String ruta = "C:\\Users\\Carlos\\Documents\\BD";
-        File carpetaBD = new File(ruta+"\\"+nombreBD);
+        File carpetaBD = new File(ruta + "\\" + nombreBD);
         if (!carpetaBD.exists()) {
             carpetaBD.mkdir();
             System.out.println("La base de datos " + nombreBD + " ha sido creada exitosamente.");
@@ -62,7 +73,7 @@ public class Comandos {
     }
 
     private static void eliminarBaseDeDatos(String nombreBD) {
-        File carpetaBD = new File(nombreBD);
+        File carpetaBD = new File(ruta + "\\" + nombreBD);
         if (carpetaBD.exists()) {
             carpetaBD.delete();
             System.out.println("La base de datos " + nombreBD + " ha sido eliminada exitosamente.");
@@ -73,21 +84,36 @@ public class Comandos {
 
     private static void seleccionarBaseDeDatos(String comando) {
         String nombreBD = obtenerSegundoToken(comando);
-        currentDatabase = nombreBD;
+        if (nombreBD != null) {
+            currentDatabase = nombreBD;
+            System.out.println("Estás dentro de la base de datos " + currentDatabase);
+        } else {
+            System.out.println("Error en el comando, verifique la sintaxis");
+        }
     }
 
     private static void crearTabla(String comando) {
+        if (currentDatabase.isEmpty()) {
+            System.out.println("Error: debe seleccionar una base de datos antes de crear una tabla.");
+            return;
+        }
+        String[] tokens = comando.split(" ");
         String nombreTabla = obtenerSegundoToken(comando);
-        String atributos = obtenerTercerToken(comando);
-        File tabla = new File(currentDatabase + "\\" + nombreTabla + ".txt");
-        try {
-            tabla.createNewFile();
-            try (FileWriter escritor = new FileWriter(tabla)) {
-                escritor.write(atributos);
+        String contenidoTabla = comando.substring(comando.indexOf(nombreTabla) + nombreTabla.length());
+        File tabla = new File(ruta + "\\" + currentDatabase + "\\" + nombreTabla + ".txt");
+        System.out.println(tabla);
+        if (tabla.exists()) {
+            System.out.println("Error: la tabla " + nombreTabla + " ya existe en la base de datos " + currentDatabase);
+        } else {
+            try {
+                tabla.createNewFile();
+                BufferedWriter bw = new BufferedWriter(new FileWriter(tabla));
+                bw.write(contenidoTabla);
+                bw.close();
+                System.out.println("La tabla " + nombreTabla + " ha sido creada exitosamente en la base de datos " + currentDatabase);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-            System.out.println("Tabla " + nombreTabla + " creada en la base de datos " + currentDatabase);
-        } catch (IOException e) {
-            System.out.println("Error al crear la tabla: " + e.getMessage());
         }
     }
 
@@ -95,7 +121,7 @@ public class Comandos {
         try {
             String nombreTabla = obtenerSegundoToken(comando);
             String nuevosAtributos = obtenerTercerToken(comando);
-            File tabla = new File(currentDatabase + "\\" + nombreTabla + ".txt");
+            File tabla = new File(ruta + "\\" + currentDatabase + "\\" + nombreTabla + ".txt");
             if (!tabla.exists()) {
                 System.out.println("La tabla no existe en la base de datos seleccionada");
                 return;
@@ -113,7 +139,7 @@ public class Comandos {
 
     private static void eliminarTabla(String comando) {
         String nombreTabla = obtenerSegundoToken(comando);
-        File tabla = new File(currentDatabase + "\\" + nombreTabla + ".txt");
+        File tabla = new File(ruta + "\\" + currentDatabase + "\\" + nombreTabla + ".txt");
         try {
             if (tabla.delete()) {
                 System.out.println("La tabla " + nombreTabla + " ha sido eliminada.");
@@ -128,10 +154,10 @@ public class Comandos {
     private static void insertarRegistro(String comando) {
         String nombreTabla = obtenerSegundoToken(comando);
         String valores = obtenerTercerToken(comando);
-        String rutaTabla = currentDatabase + "\\" + nombreTabla + ".txt";
+        String rutaTabla = ruta + "\\" + currentDatabase + "\\" + nombreTabla + ".txt";
         try {
             FileWriter fw = new FileWriter(rutaTabla, true);
-            fw.write(valores + "\n"); 
+            fw.write(valores + "\n");
             fw.close();
         } catch (IOException e) {
             System.out.println("Error al insertar en la tabla " + nombreTabla + ": " + e.getMessage());
